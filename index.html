@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تطبيق الريموت والشاشة الذكية</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts (Cairo) -->
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        
+        /* Realistic Remote Glass and Metallic Effects */
+        .remote-body {
+            background: linear-gradient(145deg, #1e2430, #11151c);
+            box-shadow: 20px 20px 60px #0b0d12, -20px -20px 60px #252d3c, inset 0 1px 1px rgba(255,255,255,0.1);
+        }
+
+        .btn-glass {
+            background: linear-gradient(145deg, #2a3242, #1d232e);
+            box-shadow: 4px 4px 10px #0e1117, -2px -2px 6px #384357;
+            transition: all 0.1s ease;
+        }
+
+        .btn-glass:active, .btn-glass.active-press {
+            box-shadow: inset 3px 3px 6px #0e1117, inset -2px -2px 4px #384357;
+            transform: scale(0.96);
+        }
+
+        .dpad-btn {
+            background: linear-gradient(145deg, #252c3a, #1a202a);
+        }
+
+        .dpad-btn:active {
+            background: #141820;
+        }
+
+        /* Screen Glow & Scanlines */
+        .tv-screen-container {
+            box-shadow: 0 0 50px rgba(59, 130, 246, 0.2);
+        }
+
+        .scanline {
+            background: linear-gradient(
+                to bottom,
+                rgba(255,255,255,0),
+                rgba(255,255,255,0) 50%,
+                rgba(0, 0, 0, 0.3) 50%,
+                rgba(0, 0, 0, 0.3)
+            );
+            background-size: 100% 4px;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f172a;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between overflow-x-hidden">
+
+    <!-- Header / Navigation bar -->
+    <header class="bg-slate-900/80 backdrop-blur border-b border-slate-800 sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center text-white shadow-lg shadow-blue-500/30">
+                    <i class="fa-solid fa-tv text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight">المنظومة الذكية</h1>
+                    <p class="text-xs text-slate-400">تحكم عن بُعد واستقبال حي</p>
+                </div>
+            </div>
+
+            <!-- Mode Selector Tabs -->
+            <div class="flex bg-slate-950 p-1 rounded-xl border border-slate-800">
+                <button id="tab-receiver" onclick="switchMode('receiver')" class="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200">
+                    <i class="fa-solid fa-desktop"></i>
+                    <span>وضع الشاشة (المستقبل)</span>
+                </button>
+                <button id="tab-remote" onclick="switchMode('remote')" class="flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all duration-200">
+                    <i class="fa-solid fa-gamepad"></i>
+                    <span>وضع الريموت (المتحكم)</span>
+                </button>
+            </div>
+
+            <!-- Sync Indicator & Quick Help -->
+            <div class="flex items-center gap-3 text-xs">
+                <div class="flex items-center gap-2 bg-slate-800/80 px-3 py-1.5 rounded-full border border-slate-700">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                    <span id="sync-status" class="text-slate-300">متصل عبر القناة المحلية</span>
+                </div>
+                <button onclick="openHelpModal()" class="text-slate-400 hover:text-white p-2 rounded-lg hover:bg-slate-800 transition">
+                    <i class="fa-solid fa-circle-question text-lg"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 flex items-center justify-center">
+
+        <!-- ==================== RECEIVER / TV MODE ==================== -->
+        <div id="view-receiver" class="w-full max-w-5xl transition-all duration-300">
+            <!-- TV Outer Frame -->
+            <div class="relative bg-slate-900 p-4 sm:p-6 rounded-3xl border-4 border-slate-800 shadow-2xl tv-screen-container">
+                <!-- TV Screen Display -->
+                <div id="tv-screen" class="relative w-full aspect-video bg-black rounded-2xl overflow-hidden shadow-inner flex flex-col justify-between p-6 border border-slate-800/50">
+                    <!-- Scanline Overlay Effect -->
+                    <div class="absolute inset-0 scanline pointer-events-none opacity-40"></div>
+
+                    <!-- TV Status / Channel Header -->
+                    <div class="relative z-10 flex justify-between items-start">
+                        <!-- Channel Info Badge -->
+                        <div id="tv-channel-badge" class="bg-slate-900/80 backdrop-blur-md px-4 py-2 rounded-xl border border-slate-700/50 flex items-center gap-3">
+                            <i id="channel-icon" class="fa-solid fa-film text-blue-400 text-xl"></i>
+                            <div>
+                                <span id="channel-number" class="text-xs text-blue-400 font-bold block">قناة 1</span>
+                                <h3 id="channel-name" class="font-bold text-sm sm:text-base text-white">السينما العالمية</h3>
+                            </div>
+                        </div>
+
+                        <!-- Power & Clock Indicator -->
+                        <div class="flex items-center gap-3">
+                            <div id="clock-display" class="text-xs font-mono bg-black/60 px-3 py-1.5 rounded-lg border border-slate-800 text-slate-300">
+                                00:00
+                            </div>
+                            <div id="tv-power-led" class="w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]"></div>
+                        </div>
+                    </div>
+
+                    <!-- Center Screen Dynamic Content Display -->
+                    <div id="tv-content-area" class="relative z-10 flex flex-col items-center justify-center my-auto text-center transition-all duration-300">
+                        <!-- Screen Content Loaded via JS -->
+                        <div id="tv-main-visual" class="mb-4 text-blue-500 transition-transform duration-300 scale-100">
+                            <i class="fa-solid fa-clapperboard text-6xl sm:text-8xl drop-shadow-[0_10px_20px_rgba(59,130,246,0.3)]"></i>
+                        </div>
+                        <h2 id="tv-program-title" class="text-2xl sm:text-4xl font-black mb-2 text-white">فيلم الأكشن والتشويق</h2>
+                        <p id="tv-program-desc" class="text-slate-400 text-xs sm:text-sm max-w-md">بث مباشر بتقنية 4K Ultra HD مع صوت المحيط الرقمي</p>
+                    </div>
+
+                    <!-- On-Screen Notifications / Alerts (e.g. Mute, Volume change) -->
+                    <div id="tv-osd" class="absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-center items-center pointer-events-none opacity-0 transition-opacity duration-300 z-20">
+                        <div class="bg-slate-900/90 backdrop-blur-lg px-8 py-4 rounded-2xl border border-slate-700 text-center shadow-2xl flex items-center gap-4">
+                            <i id="osd-icon" class="fa-solid fa-volume-high text-3xl text-blue-400"></i>
+                            <div class="text-right">
+                                <div id="osd-title" class="font-bold text-lg">الصوت</div>
+                                <div id="osd-value" class="text-sm text-slate-400">50%</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Bottom Bar: Volume Bar & Info Overlay -->
+                    <div class="relative z-10 flex flex-col gap-2">
+                        <!-- Volume Visualizer Bar -->
+                        <div id="volume-bar-container" class="w-full bg-slate-950/80 backdrop-blur p-3 rounded-xl border border-slate-800/80 flex items-center gap-4 transition-all duration-300 opacity-90">
+                            <i id="tv-volume-icon" class="fa-solid fa-volume-high text-slate-400"></i>
+                            <div class="flex-1 bg-slate-800 h-3 rounded-full overflow-hidden p-0.5 border border-slate-700">
+                                <div id="tv-volume-fill" class="bg-gradient-to-r from-blue-500 to-indigo-500 h-full rounded-full transition-all duration-200" style="width: 50%;"></div>
+                            </div>
+                            <span id="tv-volume-text" class="text-xs font-mono font-bold w-8 text-left">50%</span>
+                        </div>
+
+                        <!-- Toast / Signal Alert Footer -->
+                        <div class="flex justify-between items-center text-[11px] text-slate-500 bg-black/40 px-3 py-1 rounded-lg">
+                            <span id="last-action-text">جاهز واستقبل الأوامر...</span>
+                            <span class="flex items-center gap-1">
+                                <i class="fa-solid fa-wifi text-emerald-400"></i>
+                                HDM1 4K 60Hz
+                            </span>
+                        </div>
+                    </div>
+
+                    <!-- Off Screen Overlay -->
+                    <div id="tv-off-overlay" class="absolute inset-0 bg-slate-950 z-30 flex flex-col items-center justify-center transition-opacity duration-500 opacity-0 pointer-events-none">
+                        <div class="w-16 h-16 rounded-full bg-slate-900 flex items-center justify-center border border-slate-800 mb-3">
+                            <i class="fa-solid fa-power-off text-2xl text-slate-700"></i>
+                        </div>
+                        <p class="text-slate-600 text-sm font-semibold">التلفزيون في وضع الاستعداد</p>
+                    </div>
+                </div>
+
+                <!-- TV Physical Stand Base -->
+                <div class="w-32 h-3 bg-slate-800 mx-auto rounded-b-xl border-x border-b border-slate-700"></div>
+                <div class="w-48 h-1.5 bg-slate-700 mx-auto rounded-full mt-0.5 opacity-50"></div>
+            </div>
+        </div>
+
+        <!-- ==================== REMOTE CONTROLLER MODE ==================== -->
+        <div id="view-remote" class="w-full max-w-sm transition-all duration-300 hidden">
+            <!-- Physical Remote Casing -->
+            <div class="remote-body rounded-[40px] p-6 border border-slate-800/80 flex flex-col gap-6 relative">
+                
+                <!-- Remote IR Emitter Lamp Simulation -->
+                <div class="absolute -top-2 left-1/2 -translate-x-1/2 w-8 h-2 bg-slate-800 rounded-t-lg flex justify-center items-center">
+                    <div id="ir-led" class="w-3 h-1 bg-red-900 rounded-full transition-all duration-100"></div>
+                </div>
+
+                <!-- Top Row: Power & Mute -->
+                <div class="flex justify-between items-center pt-2">
+                    <button onclick="sendRemoteCommand('POWER')" class="w-12 h-12 rounded-full bg-red-600/20 border border-red-500/30 text-red-500 flex items-center justify-center hover:bg-red-600 hover:text-white transition active:scale-90 shadow-lg shadow-red-900/20">
+                        <i class="fa-solid fa-power-off text-lg"></i>
+                    </button>
+
+                    <div class="text-center">
+                        <span class="text-[10px] font-extrabold tracking-widest text-slate-500 uppercase block">Smart Control</span>
+                        <div class="w-2 h-2 bg-blue-500 rounded-full mx-auto mt-1 animate-ping"></div>
+                    </div>
+
+                    <button onclick="sendRemoteCommand('MUTE')" class="w-12 h-12 rounded-full btn-glass text-slate-300 flex items-center justify-center hover:text-white active:scale-90">
+                        <i id="remote-mute-icon" class="fa-solid fa-volume-xmark text-lg"></i>
+                    </button>
+                </div>
+
+                <!-- Navigation D-Pad (Circular) -->
+                <div class="relative w-56 h-56 mx-auto rounded-full bg-slate-900/60 border border-slate-800/80 p-3 flex items-center justify-center shadow-inner">
+                    <!-- Up -->
+                    <button onclick="sendRemoteCommand('NAV_UP')" class="absolute top-2 w-14 h-12 rounded-t-full dpad-btn text-slate-300 flex items-start justify-center pt-2 hover:text-white active:bg-slate-800">
+                        <i class="fa-solid fa-chevron-up text-lg"></i>
+                    </button>
+                    <!-- Down -->
+                    <button onclick="sendRemoteCommand('NAV_DOWN')" class="absolute bottom-2 w-14 h-12 rounded-b-full dpad-btn text-slate-300 flex items-end justify-center pb-2 hover:text-white active:bg-slate-800">
+                        <i class="fa-solid fa-chevron-down text-lg"></i>
+                    </button>
+                    <!-- Right (Arabic Direction - Next/Right) -->
+                    <button onclick="sendRemoteCommand('NAV_RIGHT')" class="absolute right-2 h-14 w-12 rounded-r-full dpad-btn text-slate-300 flex items-center justify-end pr-2 hover:text-white active:bg-slate-800">
+                        <i class="fa-solid fa-chevron-right text-lg"></i>
+                    </button>
+                    <!-- Left -->
+                    <button onclick="sendRemoteCommand('NAV_LEFT')" class="absolute left-2 h-14 w-12 rounded-l-full dpad-btn text-slate-300 flex items-center justify-start pl-2 hover:text-white active:bg-slate-800">
+                        <i class="fa-solid fa-chevron-left text-lg"></i>
+                    </button>
+                    <!-- OK / Center Select Button -->
+                    <button onclick="sendRemoteCommand('OK')" class="w-20 h-20 rounded-full bg-gradient-to-br from-blue-600 to-indigo-700 text-white font-bold shadow-lg shadow-blue-600/30 flex items-center justify-center active:scale-95 transition">
+                        موافق
+                    </button>
+                </div>
+
+                <!-- Navigation Action Buttons (Back, Home, Info) -->
+                <div class="grid grid-cols-3 gap-3 text-sm">
+                    <button onclick="sendRemoteCommand('BACK')" class="btn-glass p-3 rounded-2xl text-slate-300 flex flex-col items-center gap-1 hover:text-white">
+                        <i class="fa-solid fa-rotate-left"></i>
+                        <span class="text-[10px]">رجوع</span>
+                    </button>
+                    <button onclick="sendRemoteCommand('HOME')" class="btn-glass p-3 rounded-2xl text-slate-300 flex flex-col items-center gap-1 hover:text-white">
+                        <i class="fa-solid fa-house"></i>
+                        <span class="text-[10px]">الرئيسية</span>
+                    </button>
+                    <button onclick="sendRemoteCommand('INFO')" class="btn-glass p-3 rounded-2xl text-slate-300 flex flex-col items-center gap-1 hover:text-white">
+                        <i class="fa-solid fa-circle-info"></i>
+                        <span class="text-[10px]">معلومات</span>
+                    </button>
+                </div>
+
+                <!-- Volume & Channel Rockers -->
+                <div class="grid grid-cols-2 gap-4 my-1">
+                    <!-- Volume Control Pillar -->
+                    <div class="bg-slate-900/80 rounded-2xl p-2 border border-slate-800 flex flex-col justify-between items-center h-32">
+                        <button onclick="sendRemoteCommand('VOL_UP')" class="w-full h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 flex items-center justify-center active:scale-95">
+                            <i class="fa-solid fa-plus"></i>
+                        </button>
+                        <span class="text-[11px] font-bold text-slate-400 my-1">الصوت</span>
+                        <button onclick="sendRemoteCommand('VOL_DOWN')" class="w-full h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 flex items-center justify-center active:scale-95">
+                            <i class="fa-solid fa-minus"></i>
+                        </button>
+                    </div>
+
+                    <!-- Channel Control Pillar -->
+                    <div class="bg-slate-900/80 rounded-2xl p-2 border border-slate-800 flex flex-col justify-between items-center h-32">
+                        <button onclick="sendRemoteCommand('CH_UP')" class="w-full h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 flex items-center justify-center active:scale-95">
+                            <i class="fa-solid fa-chevron-up"></i>
+                        </button>
+                        <span class="text-[11px] font-bold text-slate-400 my-1">القناة</span>
+                        <button onclick="sendRemoteCommand('CH_DOWN')" class="w-full h-10 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-200 flex items-center justify-center active:scale-95">
+                            <i class="fa-solid fa-chevron-down"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Media Control Buttons -->
+                <div class="grid grid-cols-4 gap-2">
+                    <button onclick="sendRemoteCommand('MEDIA_PLAY_PAUSE')" class="btn-glass p-2.5 rounded-xl text-slate-300 hover:text-white">
+                        <i class="fa-solid fa-play-pause"></i>
+                    </button>
+                    <button onclick="sendRemoteCommand('MEDIA_STOP')" class="btn-glass p-2.5 rounded-xl text-slate-300 hover:text-white">
+                        <i class="fa-solid fa-stop"></i>
+                    </button>
+                    <button onclick="sendRemoteCommand('MEDIA_PREV')" class="btn-glass p-2.5 rounded-xl text-slate-300 hover:text-white">
+                        <i class="fa-solid fa-backward-step"></i>
+                    </button>
+                    <button onclick="sendRemoteCommand('MEDIA_NEXT')" class="btn-glass p-2.5 rounded-xl text-slate-300 hover:text-white">
+                        <i class="fa-solid fa-forward-step"></i>
+                    </button>
+                </div>
+
+                <!-- Color Action Buttons (Smart TV Shortcuts) -->
+                <div class="grid grid-cols-4 gap-3 pt-2">
+                    <button onclick="sendRemoteCommand('COLOR_RED')" class="h-4 rounded-full bg-red-500 hover:bg-red-400 shadow-md shadow-red-500/30 active:scale-90 transition"></button>
+                    <button onclick="sendRemoteCommand('COLOR_GREEN')" class="h-4 rounded-full bg-emerald-500 hover:bg-emerald-400 shadow-md shadow-emerald-500/30 active:scale-90 transition"></button>
+                    <button onclick="sendRemoteCommand('COLOR_YELLOW')" class="h-4 rounded-full bg-amber-400 hover:bg-amber-300 shadow-md shadow-amber-400/30 active:scale-90 transition"></button>
+                    <button onclick="sendRemoteCommand('COLOR_BLUE')" class="h-4 rounded-full bg-blue-500 hover:bg-blue-400 shadow-md shadow-blue-500/30 active:scale-90 transition"></button>
+                </div>
+
+                <!-- Quick Apps Shortcuts -->
+                <div class="grid grid-cols-2 gap-2 pt-1">
+                    <button onclick="sendRemoteCommand('APP_NETFLIX')" class="bg-red-950/40 border border-red-800/40 text-red-400 hover:bg-red-900/60 py-2 rounded-xl text-xs font-bold transition">
+                        NETFLIX
+                    </button>
+                    <button onclick="sendRemoteCommand('APP_YOUTUBE')" class="bg-slate-800/60 border border-slate-700/50 text-slate-200 hover:bg-slate-700 py-2 rounded-xl text-xs font-bold transition flex items-center justify-center gap-1">
+                        <i class="fa-brands fa-youtube text-red-500 text-sm"></i> YouTube
+                    </button>
+                </div>
+
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer Help / Info Bar -->
+    <footer class="bg-slate-900/60 border-t border-slate-800/80 py-3 text-center text-xs text-slate-500">
+        <p>نظام التحكم المزدوج المحلي • افتح علامتي تبويب (Tab) مختلفتين لتجربة الريموت والشاشة معاً بشكل حي متزامن</p>
+    </footer>
+
+    <!-- Help Modal -->
+    <div id="help-modal" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg text-white flex items-center gap-2">
+                    <i class="fa-solid fa-circle-info text-blue-500"></i> كيفية استخدام التطبيق
+                </h3>
+                <button onclick="closeHelpModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-3 text-sm text-slate-300">
+                <p class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <strong class="text-blue-400">1. البث المزدوج:</strong> يمكنك فتح هذه الصفحة في نافذتين أو تبويبين متجاورين في المتصفح.
+                </p>
+                <p class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <strong class="text-blue-400">2. ضبط الوضع:</strong> اجعل إحدى النافذتين على <span class="text-emerald-400">وضع الشاشة</span> والأخرى على <span class="text-amber-400">وضع الريموت</span>.
+                </p>
+                <p class="bg-slate-800/50 p-3 rounded-xl border border-slate-700/50">
+                    <strong class="text-blue-400">3. التحكم اللحظي:</strong> اضغط على أي زر في الريموت وستشاهد الاستجابة فوراً في الشاشة مع المؤثرات الصوتية والبصرية!
+                </p>
+            </div>
+            <button onclick="closeHelpModal()" class="w-full mt-5 bg-blue-600 hover:bg-blue-500 text-white font-bold py-2.5 rounded-xl transition">
+                فهمت ذلك
+            </button>
+        </div>
+    </div>
+
+    <!-- JavaScript Application Logic -->
+    <script>
+        // ==========================================
+        // STATE MANAGEMENT & DATA
+        // ==========================================
+        let appMode = 'receiver'; // 'receiver' or 'remote'
+        let tvState = {
+            power: true,
+            volume: 50,
+            isMuted: false,
+            currentChannelIndex: 0,
+            isPlaying: true,
+            currentApp: 'TV' // 'TV', 'NETFLIX', 'YOUTUBE'
+        };
+
+        const channels = [
+            { id: 1, name: "السينما العالمية", icon: "fa-film", desc: "أحدث الأفلام العالمية بدقة عالية", color: "text-blue-400" },
+            { id: 2, name: "الرياضة المباشرة", icon: "fa-futbol", desc: "مباريات واستوديوهات تحليلية حية", color: "text-emerald-400" },
+            { id: 3, name: "الأخبار العاجلة", icon: "fa-newspaper", desc: "تغطية مستمرة لأهم الأحداث العالمية", color: "text-red-400" },
+            { id: 4, name: "الوثائقيات و الطبيعة", icon: "fa-earth-americas", desc: "استكشف أسرار الطبيعة والعلوم", color: "text-amber-400" },
+            { id: 5, name: "الموسيقى و الفنون", icon: "fa-music", desc: "أفضل الحفلات الموسيقية والأنغام", color: "text-purple-400" }
+        ];
+
+        // BroadcastChannel API for P2P Inter-tab Communication
+        const channel = new BroadcastChannel('smart_tv_remote_channel');
+
+        // Web Audio API Context for Realistic Sound Effects
+        let audioCtx = null;
+
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+        }
+
+        // Play Synthesized Button Click / Beep Sounds
+        function playSound(type) {
+            try {
+                initAudio();
+                if (!audioCtx) return;
+
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                const now = audioCtx.currentTime;
+
+                if (type === 'click') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(800, now);
+                    osc.frequency.exponentialRampToValueAtTime(400, now + 0.05);
+                    gain.gain.setValueAtTime(0.15, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.05);
+                    osc.start(now);
+                    osc.stop(now + 0.05);
+                } else if (type === 'power') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(300, now);
+                    osc.frequency.exponentialRampToValueAtTime(900, now + 0.15);
+                    gain.gain.setValueAtTime(0.2, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.15);
+                    osc.start(now);
+                    osc.stop(now + 0.15);
+                } else if (type === 'vol') {
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(600, now);
+                    gain.gain.setValueAtTime(0.1, now);
+                    gain.gain.linearRampToValueAtTime(0.01, now + 0.03);
+                    osc.start(now);
+                    osc.stop(now + 0.03);
+                }
+            } catch (e) {
+                // Audio context block safeguard
+            }
+        }
+
+        // Trigger IR LED Visual Effect on Remote
+        function flashIRLED() {
+            const ir = document.getElementById('ir-led');
+            if (ir) {
+                ir.classList.remove('bg-red-900');
+                ir.classList.add('bg-red-500', 'shadow-[0_0_12px_#ef4444]');
+                setTimeout(() => {
+                    ir.classList.remove('bg-red-500', 'shadow-[0_0_12px_#ef4444]');
+                    ir.classList.add('bg-red-900');
+                }, 120);
+            }
+        }
+
+        // Trigger Haptic Feedback (Mobile Devices)
+        function triggerHaptic() {
+            if (navigator.vibrate) {
+                navigator.vibrate(30);
+            }
+        }
+
+        // ==========================================
+        // UI MODE SWITCHING & INIT
+        // ==========================================
+        function switchMode(mode) {
+            appMode = mode;
+            const viewReceiver = document.getElementById('view-receiver');
+            const viewRemote = document.getElementById('view-remote');
+            const tabReceiver = document.getElementById('tab-receiver');
+            const tabRemote = document.getElementById('tab-remote');
+
+            if (mode === 'receiver') {
+                viewReceiver.classList.remove('hidden');
+                viewRemote.classList.add('hidden');
+
+                tabReceiver.className = "flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white shadow-lg shadow-blue-600/30";
+                tabRemote.className = "flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white";
+            } else {
+                viewReceiver.classList.add('hidden');
+                viewRemote.classList.remove('hidden');
+
+                tabRemote.className = "flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold bg-blue-600 text-white shadow-lg shadow-blue-600/30";
+                tabReceiver.className = "flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold text-slate-400 hover:text-white";
+            }
+        }
+
+        // ==========================================
+        // REMOTE SENDER LOGIC
+        // ==========================================
+        function sendRemoteCommand(action, payload = null) {
+            flashIRLED();
+            triggerHaptic();
+
+            if (action === 'POWER') playSound('power');
+            else if (action.startsWith('VOL')) playSound('vol');
+            else playSound('click');
+
+            const message = { action, payload, timestamp: Date.now() };
+
+            // Send via BroadcastChannel to other tabs
+            channel.postMessage(message);
+
+            // Also process locally so single-page state works seamlessly
+            processCommand(message);
+        }
+
+        // Listen to Broadcast Messages from other Tabs
+        channel.onmessage = (event) => {
+            processCommand(event.data);
+        };
+
+        // ==========================================
+        // RECEIVER COMMAND PROCESSOR
+        // ==========================================
+        let osdTimeout = null;
+
+        function showOSD(iconClass, title, value) {
+            const osd = document.getElementById('tv-osd');
+            const osdIcon = document.getElementById('osd-icon');
+            const osdTitle = document.getElementById('osd-title');
+            const osdValue = document.getElementById('osd-value');
+
+            if (!osd) return;
+
+            osdIcon.className = `${iconClass} text-3xl text-blue-400`;
+            osdTitle.textContent = title;
+            osdValue.textContent = value;
+
+            osd.classList.remove('opacity-0');
+            osd.classList.add('opacity-100');
+
+            clearTimeout(osdTimeout);
+            osdTimeout = setTimeout(() => {
+                osd.classList.remove('opacity-100');
+                osd.classList.add('opacity-0');
+            }, 1800);
+        }
+
+        function updateLastActionText(text) {
+            const el = document.getElementById('last-action-text');
+            if (el) el.textContent = `الأمر الأخير: ${text}`;
+        }
+
+        function processCommand(data) {
+            const { action } = data;
+
+            // Check Power toggle first
+            if (action === 'POWER') {
+                tvState.power = !tvState.power;
+                const overlay = document.getElementById('tv-off-overlay');
+                const led = document.getElementById('tv-power-led');
+
+                if (tvState.power) {
+                    overlay.classList.add('opacity-0', 'pointer-events-none');
+                    led.className = "w-3 h-3 rounded-full bg-emerald-500 shadow-[0_0_10px_#10b981]";
+                    updateLastActionText('تشغيل الجهاز');
+                } else {
+                    overlay.classList.remove('opacity-0', 'pointer-events-none');
+                    led.className = "w-3 h-3 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444]";
+                    updateLastActionText('إيقاف التشغيل');
+                    return;
+                }
+            }
+
+            // Ignore other commands if TV is OFF
+            if (!tvState.power) return;
+
+            switch (action) {
+                case 'VOL_UP':
+                    if (tvState.isMuted) tvState.isMuted = false;
+                    tvState.volume = Math.min(100, tvState.volume + 5);
+                    updateVolumeUI();
+                    showOSD('fa-solid fa-volume-high', 'مستوى الصوت', `${tvState.volume}%`);
+                    updateLastActionText('رفع الصوت');
+                    break;
+
+                case 'VOL_DOWN':
+                    if (tvState.isMuted) tvState.isMuted = false;
+                    tvState.volume = Math.max(0, tvState.volume - 5);
+                    updateVolumeUI();
+                    showOSD('fa-solid fa-volume-low', 'مستوى الصوت', `${tvState.volume}%`);
+                    updateLastActionText('خفض الصوت');
+                    break;
+
+                case 'MUTE':
+                    tvState.isMuted = !tvState.isMuted;
+                    updateVolumeUI();
+                    showOSD(tvState.isMuted ? 'fa-solid fa-volume-xmark' : 'fa-solid fa-volume-high', 'الكتم', tvState.isMuted ? 'مفعل' : 'معطل');
+                    updateLastActionText(tvState.isMuted ? 'كتم الصوت' : 'إلغاء الكتم');
+                    break;
+
+                case 'CH_UP':
+                case 'NAV_LEFT':
+                    tvState.currentChannelIndex = (tvState.currentChannelIndex + 1) % channels.length;
+                    tvState.currentApp = 'TV';
+                    updateChannelUI();
+                    showOSD('fa-solid fa-tv', 'القناة', channels[tvState.currentChannelIndex].name);
+                    updateLastActionText(`القناة التالية (${channels[tvState.currentChannelIndex].name})`);
+                    break;
+
+                case 'CH_DOWN':
+                case 'NAV_RIGHT':
+                    tvState.currentChannelIndex = (tvState.currentChannelIndex - 1 + channels.length) % channels.length;
+                    tvState.currentApp = 'TV';
+                    updateChannelUI();
+                    showOSD('fa-solid fa-tv', 'القناة', channels[tvState.currentChannelIndex].name);
+                    updateLastActionText(`القناة السابقة (${channels[tvState.currentChannelIndex].name})`);
+                    break;
+
+                case 'MEDIA_PLAY_PAUSE':
+                case 'OK':
+                    tvState.isPlaying = !tvState.isPlaying;
+                    showOSD(tvState.isPlaying ? 'fa-solid fa-play' : 'fa-solid fa-pause', 'الحالة', tvState.isPlaying ? 'تشغيل' : 'إيقاف مؤقت');
+                    updateLastActionText(tvState.isPlaying ? 'تشغيل' : 'إيقاف مؤقت');
+                    
+                    const visual = document.getElementById('tv-main-visual');
+                    if(visual) {
+                        visual.style.transform = tvState.isPlaying ? 'scale(1)' : 'scale(0.9)';
+                        visual.style.opacity = tvState.isPlaying ? '1' : '0.6';
+                    }
+                    break;
+
+                case 'HOME':
+                case 'BACK':
+                    tvState.currentApp = 'TV';
+                    updateChannelUI();
+                    showOSD('fa-solid fa-house', 'القائمة', 'الرئيسية');
+                    updateLastActionText('القائمة الرئيسية');
+                    break;
+
+                case 'APP_NETFLIX':
+                    tvState.currentApp = 'NETFLIX';
+                    renderAppUI('NETFLIX', 'Netflix', 'fa-brands fa-netflix text-red-600', 'استمتع بمشاهدة الأفلام والمسلسلات الحصرية');
+                    showOSD('fa-solid fa-film', 'تطبيق', 'Netflix');
+                    updateLastActionText('فتح تطبيق Netflix');
+                    break;
+
+                case 'APP_YOUTUBE':
+                    tvState.currentApp = 'YOUTUBE';
+                    renderAppUI('YOUTUBE', 'YouTube 4K', 'fa-brands fa-youtube text-red-500', 'شاهد أحدث الفيديوهات وصناع المحتوى');
+                    showOSD('fa-brands fa-youtube', 'تطبيق', 'YouTube');
+                    updateLastActionText('فتح تطبيق YouTube');
+                    break;
+
+                case 'COLOR_RED':
+                    showOSD('fa-solid fa-circle', 'الزر الأحمر', 'تسجيل البث');
+                    updateLastActionText('الضغط على الزر الأحمر');
+                    break;
+                case 'COLOR_GREEN':
+                    showOSD('fa-solid fa-circle', 'الزر الأخضر', 'إعدادات الترجمة');
+                    updateLastActionText('الضغط على الزر الأخضر');
+                    break;
+                case 'COLOR_YELLOW':
+                    showOSD('fa-solid fa-circle', 'الزر الأصفر', 'المفضلة');
+                    updateLastActionText('الضغط على الزر الأصفر');
+                    break;
+                case 'COLOR_BLUE':
+                    showOSD('fa-solid fa-circle', 'الزر الأزرق', 'دليل البرامج (EPG)');
+                    updateLastActionText('الضغط على الزر الأزرق');
+                    break;
+            }
+        }
+
+        // Update TV Volume Display Bar
+        function updateVolumeUI() {
+            const fill = document.getElementById('tv-volume-fill');
+            const text = document.getElementById('tv-volume-text');
+            const icon = document.getElementById('tv-volume-icon');
+
+            const activeVol = tvState.isMuted ? 0 : tvState.volume;
+
+            if (fill) fill.style.width = `${activeVol}%`;
+            if (text) text.textContent = `${activeVol}%`;
+
+            if (icon) {
+                if (tvState.isMuted || tvState.volume === 0) {
+                    icon.className = "fa-solid fa-volume-xmark text-red-400";
+                } else if (tvState.volume < 40) {
+                    icon.className = "fa-solid fa-volume-low text-slate-400";
+                } else {
+                    icon.className = "fa-solid fa-volume-high text-slate-400";
+                }
+            }
+        }
+
+        // Update TV Channel Display UI
+        function updateChannelUI() {
+            const curr = channels[tvState.currentChannelIndex];
+
+            document.getElementById('channel-number').textContent = `قناة ${curr.id}`;
+            document.getElementById('channel-name').textContent = curr.name;
+            document.getElementById('channel-icon').className = `fa-solid ${curr.icon} ${curr.color} text-xl`;
+
+            document.getElementById('tv-program-title').textContent = curr.name;
+            document.getElementById('tv-program-desc').textContent = curr.desc;
+
+            const visual = document.getElementById('tv-main-visual');
+            visual.innerHTML = `<i class="fa-solid ${curr.icon} text-6xl sm:text-8xl drop-shadow-[0_10px_20px_rgba(59,130,246,0.3)]"></i>`;
+            visual.className = `mb-4 ${curr.color} transition-all duration-300 scale-100`;
+        }
+
+        // Render Custom App UI on Screen (Netflix, YouTube etc.)
+        function renderAppUI(appKey, title, iconClasses, desc) {
+            document.getElementById('channel-number').textContent = `تطبيق ذكي`;
+            document.getElementById('channel-name').textContent = title;
+            document.getElementById('channel-icon').className = `fa-solid fa-grip text-blue-400 text-xl`;
+
+            document.getElementById('tv-program-title').textContent = title;
+            document.getElementById('tv-program-desc').textContent = desc;
+
+            const visual = document.getElementById('tv-main-visual');
+            visual.innerHTML = `<i class="${iconClasses} text-6xl sm:text-8xl drop-shadow-[0_10px_25px_rgba(220,38,38,0.4)]"></i>`;
+            visual.className = `mb-4 transition-all duration-300 scale-100`;
+        }
+
+        // Live Clock Tick
+        function startClock() {
+            const clockEl = document.getElementById('clock-display');
+            setInterval(() => {
+                const now = new Date();
+                const hrs = String(now.getHours()).padStart(2, '0');
+                const mins = String(now.getMinutes()).padStart(2, '0');
+                const secs = String(now.getSeconds()).padStart(2, '0');
+                if (clockEl) clockEl.textContent = `${hrs}:${mins}:${secs}`;
+            }, 1000);
+        }
+
+        // Modal Helpers
+        function openHelpModal() {
+            document.getElementById('help-modal').classList.remove('hidden');
+        }
+
+        function closeHelpModal() {
+            document.getElementById('help-modal').classList.add('hidden');
+        }
+
+        // Keyboard Shortcut Mapping for Desktop Users
+        window.addEventListener('keydown', (e) => {
+            if (e.key === 'ArrowUp') sendRemoteCommand('NAV_UP');
+            else if (e.key === 'ArrowDown') sendRemoteCommand('NAV_DOWN');
+            else if (e.key === 'ArrowLeft') sendRemoteCommand('NAV_LEFT');
+            else if (e.key === 'ArrowRight') sendRemoteCommand('NAV_RIGHT');
+            else if (e.key === 'Enter') sendRemoteCommand('OK');
+            else if (e.key === 'Escape') sendRemoteCommand('BACK');
+            else if (e.key === '+') sendRemoteCommand('VOL_UP');
+            else if (e.key === '-') sendRemoteCommand('VOL_DOWN');
+            else if (e.key === 'm' || e.key === 'M') sendRemoteCommand('MUTE');
+        });
+
+        // Initialize on Load
+        window.onload = function() {
+            switchMode('receiver'); // Default mode
+            updateVolumeUI();
+            updateChannelUI();
+            startClock();
+        };
+    </script>
+</body>
+</html>
